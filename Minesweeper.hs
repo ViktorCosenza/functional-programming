@@ -30,7 +30,7 @@ mBoard = [[False, False, False, False, False, False, False, False, False],
           [False, False, False, False, False, False, False, False, False]]
 
 gArr :: Int -> [t] -> t
-gArr i = head . drop i 
+gArr i arr = head $ drop i arr 
 
 uArr :: Int -> a -> [a] -> [a]
 uArr i x xs = back ++ [x] ++ front
@@ -39,7 +39,7 @@ uArr i x xs = back ++ [x] ++ front
         front = drop (i + 1) xs
 
 gPos :: Int -> Int -> [[a]] -> a
-gPos i j = gArr i . gArr j
+gPos i j m = gArr j $ gArr i m
 
 uPos :: Int -> Int ->  a -> [[a]] -> [[a]]
 uPos i j x m = uArr i (uArr j x (gArr i m)) m    
@@ -49,7 +49,7 @@ isMine i j = gPos i j
 
 isValidPos :: Int -> Int -> Int -> Bool
 isValidPos size i j 
-    | i >= size || j >=size || i < 0 || j< 0 = False
+    | i >= size || j >= size || i < 0 || j < 0 = False
     | otherwise = True 
 
 validMoves :: Int -> Int -> Int -> [(Int,Int)]
@@ -60,7 +60,7 @@ cMinas :: Int -> Int -> MBoard -> Int
 cMinas i j b = sum . map ((\b -> if b then 1 else 0) . (\(x, y) -> isMine x y b)) $ moves 
     where 
         size = length b
-        moves = validMoves i j size 
+        moves = validMoves size i j 
 
 --- abreJogada: é a função principal do jogo!!
 --- recebe uma posição a ser aberta (linha e coluna), o mapa de minas e o tabuleiro do jogo. Devolve como
@@ -92,7 +92,7 @@ abreJogada i j m g
 --- todo o tabuleiro no caso de vitória ou derrota
 
 abreTabuleiro :: MBoard -> GBoard -> GBoard
-abreTabuleiro m g = map (\x -> map (\y -> f x y) [1..size]) [1..size]
+abreTabuleiro m g = map (\x -> map (\y -> f x y) [1..size - 1]) [1..size - 1]
     where
         size = length m
         f x y 
@@ -102,60 +102,49 @@ abreTabuleiro m g = map (\x -> map (\y -> f x y) [1..size]) [1..size]
 
 --  -- contaFechadas: Recebe um GBoard e conta quantas posições fechadas existem no tabuleiro (posições com '-')
 mapMatrix :: (a -> b) -> [[a]]  -> [[b]]
-mapMatrix f xs = map (\x -> map (\y -> f (gPos x y))) xs
+mapMatrix f m = map (\xs -> map (\y -> f y) xs) m
 
 contaCond :: (a -> Bool) -> [[a]] -> Int
-contaCond m cond = sum binary
+contaCond cond m = sum binary
     where
-        flat = foldr (++) . mapMatrix cond m 
-        binary = map (\b -> if b then 1 else 0)
+        flat = foldr (++) [] $ mapMatrix cond m 
+        binary = map (\b -> if b then 1 else 0) flat
 
 contaFechadas :: GBoard -> Int
 contaFechadas = contaCond (== '-')
 
 contaMinas :: MBoard -> Int
-contaMinas = contaCond (== '*')
-
+contaMinas = contaCond (id)
 
 endGame :: MBoard -> GBoard -> Bool
-endGame b = contaMinas b == contaFechadas b
----
----  PARTE 3: FUNÇÕES PARA GERAR TABULEIROS E IMPRIMIR TABULEIROS
----
+endGame b g = (contaMinas b) == (contaFechadas g)
 
--- printBoard: Recebe o tabuleiro do jogo e devolve uma string que é a representação visual desse tabuleiro
--- Usar como referncia de implementacao o video sobre tabela de vendas (Aula 06)
+intercala :: a -> [a] -> [a]
+intercala _ [] = []
+intercala x xs = head xs:x:intercala x (tail xs)
 
-
--- printBoard :: GBoard -> String
-
+printBoard :: GBoard -> String
+printBoard g = header ++ foldr (\(cs, col) prev -> '\n':show col ++ ": " ++ (intercala ' ' cs) ++ prev) "" (zip g [0..size - 1]) ++ "\n"
+    where 
+        header = "  " ++ (foldr (\c prev-> ' ':c ++ prev) "" $ map show [0..size - 1]) ++ "\n"
+        size = length g
 
 -- geraLista: recebe um inteiro n, um valor v, e gera uma lista contendo n vezes o valor v
 
--- geraLista :: Int -> a -> [a]
+geraLista :: Int -> a -> [a]
+geraLista n = take n . repeat
 
 -- geraTabuleiro: recebe o tamanho do tabuleiro e gera um tabuleiro  novo, todo fechado (todas as posições
 -- contém '-'). A função geraLista deve ser usada na implementação
 
--- geraNovoTabuleiro :: Int -> GBoard
+geraNovoTabuleiro :: Int -> GBoard
+geraNovoTabuleiro size = map (\x -> geraLista size '-') [0..size - 1]
 
 -- geraMapaDeMinasZerado: recebe o tamanho do tabuleiro e gera um mapa de minas zerado, com todas as posições
 -- contendo False. Usar geraLista na implementação
 
--- geraMapaDeMinasZerado :: Int -> MBoard
-
-
--- A função a seguir (main) deve ser substituida pela função main comentada mais
--- abaixo quando o jogo estiver pronto
-
-main :: IO ()
-main = print "Alo Mundo!"
-
-{-
-
--- Aqui está o Motor do Jogo.
--- Essa parte deve ser descomentada quando as outras funções estiverem implementadas
--- Para rodar o jogo, digite "main" no interpretador
+geraMapaDeMinasZerado :: Int -> MBoard
+geraMapaDeMinasZerado size = map (\x -> geraLista size False) [0..size - 1]
 
 main :: IO ()
 main = do
@@ -184,12 +173,7 @@ gameLoop mb gb = do
                      putStr $ printBoard $ abreTabuleiro mb newGB
                      putStr "PARABENS!!!!!!!!!!!\n"
                  else
-                     gameLoop mb newGB
-
-
-
-
------ DO NOT GO BEYOUND THIS POINT   
+                     gameLoop mb newGB 
 
 
 genMinesBoard :: Int -> IO MBoard
@@ -206,4 +190,3 @@ addMines n size b = do
                       True -> addMines n size b
                       False -> addMines (n-1) size (uPos l c True b)
 
--}
